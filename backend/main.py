@@ -890,19 +890,198 @@
 #             del rooms[room_id]
 
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+# from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+# from fastapi.responses import FileResponse
+# from fastapi.staticfiles import StaticFiles
+# import asyncio
+# import random
+
+# app = FastAPI()
+
+# rooms = {}
+
+# @app.get("/")
+# async def get_index():
+#     return FileResponse("frontend/dist/index.html")
+
+# def check_winner(board):
+#     wins = [
+#         [0, 1, 2], [3, 4, 5], [6, 7, 8],
+#         [0, 3, 6], [1, 4, 7], [2, 5, 8],
+#         [0, 4, 8], [2, 4, 6],
+#     ]
+#     for a, b, c in wins:
+#         if board[a] and board[a] == board[b] == board[c]:
+#             return board[a]
+#     return None
+
+# def handle_ai_move(room_id: str):
+#     room = rooms[room_id]
+#     empty = [i for i, val in enumerate(room["board"]) if val is None]
+#     if not empty:
+#         return
+#     move = random.choice(empty)
+#     symbol = room["turn"]
+#     room["board"][move] = symbol
+
+#     winner = check_winner(room["board"])
+#     if winner:
+#         room["scores"][winner] += 1
+#         room["status"] = f"{winner} wins!"
+#         room["game_over"] = True
+#     elif None not in room["board"]:
+#         room["status"] = "Draw!"
+#         room["game_over"] = True
+#     else:
+#         room["turn"] = "X" if symbol == "O" else "O"
+#         room["status"] = f"Next turn: {room['turn']}"
+
+# async def broadcast_state(room_id: str):
+#     room = rooms[room_id]
+#     message = {
+#         "type": "state",
+#         "board": room["board"],
+#         "turn": room["turn"],
+#         "players": room["players"],
+#         "scores": room["scores"],
+#         "status": room["status"]
+#     }
+
+#     for symbol, socket in room["sockets"].items():
+#         if socket:
+#             await socket.send_json(message)
+
+# @app.websocket("/ws/{room_id}")
+# async def websocket_endpoint(websocket: WebSocket, room_id: str):
+#     await websocket.accept()
+#     player_symbol = None
+
+#     is_ai_game = room_id.startswith("ai-")
+
+#     # Create room if it doesn't exist
+#     if room_id not in rooms:
+#         rooms[room_id] = {
+#             "board": [None] * 9,
+#             "players": {},
+#             "sockets": {},
+#             "scores": {"X": 0, "O": 0},
+#             "turn": "X",
+#             "status": "Waiting for players...",
+#             "game_over": False,
+#         }
+
+#         # Automatically assign AI to one side
+#         if is_ai_game:
+#             rooms[room_id]["players"]["O"] = "AI"
+#             rooms[room_id]["sockets"]["O"] = None
+
+#     room = rooms[room_id]
+
+#     try:
+#         while True:
+#             data = await websocket.receive_json()
+
+#             if data["type"] == "join":
+#                 name = data["name"]
+
+#                 # Assign symbol to player
+#                 if "X" not in room["players"]:
+#                     player_symbol = "X"
+#                 elif "O" not in room["players"]:
+#                     player_symbol = "O"
+#                 else:
+#                     await websocket.send_json({"type": "error", "message": "Room full"})
+#                     continue
+
+#                 room["players"][player_symbol] = name
+#                 room["sockets"][player_symbol] = websocket
+
+#                 await websocket.send_json({"type": "assign", "symbol": player_symbol})
+#                 room["status"] = f"{name} joined as {player_symbol}"
+#                 await broadcast_state(room_id)
+
+#                 # AI turn right after player joins
+#                 if is_ai_game and room["players"].get(room["turn"]) == "AI":
+#                     await asyncio.sleep(1)
+#                     handle_ai_move(room_id)
+#                     await broadcast_state(room_id)
+
+#             elif data["type"] == "move":
+#                 idx = data["index"]
+#                 if player_symbol != room["turn"]:
+#                     continue
+#                 if room["board"][idx] is not None or room["game_over"]:
+#                     continue
+
+#                 room["board"][idx] = player_symbol
+
+#                 winner = check_winner(room["board"])
+#                 if winner:
+#                     room["scores"][winner] += 1
+#                     room["status"] = f"{winner} wins!"
+#                     room["game_over"] = True
+#                 elif None not in room["board"]:
+#                     room["status"] = "Draw!"
+#                     room["game_over"] = True
+#                 else:
+#                     room["turn"] = "X" if player_symbol == "O" else "O"
+#                     room["status"] = f"Next turn: {room['turn']}"
+
+#                 await broadcast_state(room_id)
+
+#                 # AI move if it's their turn
+#                 if not room["game_over"] and room["players"].get(room["turn"]) == "AI":
+#                     await asyncio.sleep(1)
+#                     handle_ai_move(room_id)
+#                     await broadcast_state(room_id)
+
+#             elif data["type"] == "restart":
+#                 room["board"] = [None] * 9
+#                 room["turn"] = "X"
+#                 room["game_over"] = False
+#                 room["status"] = f"Game restarted. Next turn: {room['turn']}"
+#                 await broadcast_state(room_id)
+
+#                 if room["players"].get("X") == "AI":
+#                     await asyncio.sleep(1)
+#                     handle_ai_move(room_id)
+#                     await broadcast_state(room_id)
+
+#     except WebSocketDisconnect:
+#         if player_symbol in room["sockets"]:
+#             room["sockets"][player_symbol] = None
+#             room["status"] = f"{player_symbol} disconnected"
+#             await broadcast_state(room_id)
+
+#         if all(socket is None for socket in room["sockets"].values()):
+#             print(f"Cleaning up empty room: {room_id}")
+#             del rooms[room_id]
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import asyncio
 import random
+import os
 
 app = FastAPI()
 
-rooms = {}
+# Serve static files from Vite build
+app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
 
 @app.get("/")
-async def get_index():
+async def serve_root():
     return FileResponse("frontend/dist/index.html")
+
+# Catch-all route for React Router
+@app.get("/{full_path:path}")
+async def serve_spa(full_path: str):
+    file_path = f"frontend/dist/{full_path}"
+    if os.path.exists(file_path):
+        return FileResponse(file_path)
+    return FileResponse("frontend/dist/index.html")
+
+rooms = {}
 
 def check_winner(board):
     wins = [
@@ -953,6 +1132,7 @@ async def broadcast_state(room_id: str):
 
 @app.websocket("/ws/{room_id}")
 async def websocket_endpoint(websocket: WebSocket, room_id: str):
+    print(f"WebSocket connection attempt to room {room_id}")
     await websocket.accept()
     player_symbol = None
 
@@ -974,6 +1154,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
         if is_ai_game:
             rooms[room_id]["players"]["O"] = "AI"
             rooms[room_id]["sockets"]["O"] = None
+            # start_ai_opponent(room_id)
 
     room = rooms[room_id]
 
@@ -1056,6 +1237,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
         if all(socket is None for socket in room["sockets"].values()):
             print(f"Cleaning up empty room: {room_id}")
             del rooms[room_id]
+
 
 
 

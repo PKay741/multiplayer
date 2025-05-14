@@ -298,10 +298,10 @@ export default function App() {
           onChange={(e) => setRoom(e.target.value)}
         />
       )}
-      <label className="flex items-center gap-2">
+      {/* <label className="flex items-center gap-2">
         <input type="checkbox" checked={vsAI} onChange={() => setVsAI(!vsAI)} />
         Play vs AI
-      </label>
+      </label> */}
       <button
         onClick={handleJoin}
         className="bg-blue-600 text-white px-4 py-2 rounded"
