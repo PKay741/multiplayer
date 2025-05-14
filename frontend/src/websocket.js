@@ -108,11 +108,34 @@
 // }
 
 
+// let socket;
+
+// export function connectToWebSocket(roomId, onMessage, onOpen) {
+//   socket = new WebSocket(`ws://localhost:8000/ws/${roomId}`);
+  
+//   socket.onopen = () => {
+//     if (onOpen) onOpen(); // Only join after socket is open
+//   };
+
+//   socket.onmessage = (event) => {
+//     const data = JSON.parse(event.data);
+//     onMessage(data);
+//   };
+// }
+
+// export function sendMessage(message) {
+//   if (socket && socket.readyState === WebSocket.OPEN) {
+//     socket.send(JSON.stringify(message));
+//   }
+// }
+
 let socket;
 
 export function connectToWebSocket(roomId, onMessage, onOpen) {
-  socket = new WebSocket(`ws://localhost:8000/ws/${roomId}`);
-  
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+  const host = window.location.host;
+  socket = new WebSocket(`${protocol}://${host}/ws/${roomId}`);
+
   socket.onopen = () => {
     if (onOpen) onOpen(); // Only join after socket is open
   };
